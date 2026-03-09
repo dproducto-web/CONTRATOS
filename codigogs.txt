@@ -1,0 +1,404 @@
+function onOpen() {
+  SpreadsheetApp.getUi()
+    .createMenu('Contratos')
+    .addItem('Abrir portal', 'abrirPortal')
+    .addToUi();
+}
+
+function abrirPortal() {
+  const html = HtmlService.createHtmlOutputFromFile('portal')
+    .setWidth(1400)
+    .setHeight(900);
+  SpreadsheetApp.getUi().showModalDialog(html, 'Portal de Contratos');
+}
+
+function doGet() {
+  return HtmlService
+    .createHtmlOutputFromFile('portal')
+    .setTitle('Portal de Contratos');
+}
+
+function obtenerPrimeraFilaVacia(sheet, columnaBase) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return 2;
+
+  const valores = sheet.getRange(2, columnaBase, lastRow - 1, 1).getValues();
+
+  for (let i = 0; i < valores.length; i++) {
+    if (valores[i][0] === "" || valores[i][0] === null) {
+      return i + 2;
+    }
+  }
+
+  return lastRow + 1;
+}
+
+function aplicarFormulasEnFila(sheet, row) {
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+
+  const colNCuotas = headers.indexOf('N_CUOTAS') + 1;
+  const colMontoTotal = headers.indexOf('MONTO_TOTAL') + 1;
+  const colMontoLetras = headers.indexOf('MONTO_TOTAL_LETRAS') + 1;
+  const colDetalleCuotas = headers.indexOf('DETALLE_CUOTAS') + 1;
+  const colNotaPago = headers.indexOf('NOTA_PAGO') + 1;
+  const colDetalleWebinar = headers.indexOf('DETALLE_WEBINAR') + 1;
+  const colHorarios = headers.indexOf('HORARIOS') + 1;
+  const colHorasTotales = headers.indexOf('HORAS_TOTALES') + 1;
+
+  const columnasFormula = [
+    colNCuotas,
+    colMontoTotal,
+    colMontoLetras,
+    colDetalleCuotas,
+    colNotaPago,
+    colDetalleWebinar,
+    colHorarios,
+    colHorasTotales
+  ].filter(c => c > 0);
+
+  columnasFormula.forEach(col => {
+    const formulaBase = sheet.getRange(2, col).getFormula();
+    if (formulaBase) {
+      sheet.getRange(2, col).copyTo(
+        sheet.getRange(row, col),
+        SpreadsheetApp.CopyPasteType.PASTE_FORMULA,
+        false
+      );
+    }
+  });
+}
+
+function rellenarFormulasBaseContratos() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('BASE_CONTRATOS');
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 3) return;
+
+  for (let row = 3; row <= lastRow; row++) {
+    aplicarFormulasEnFila(sheet, row);
+  }
+}
+
+function onEdit(e) {
+  const sheet = e.range.getSheet();
+  if (sheet.getName() !== 'BASE_CONTRATOS') return;
+
+  const row = e.range.getRow();
+  if (row < 2) return;
+
+  aplicarFormulasEnFila(sheet, row);
+}
+
+function guardarFormularioContrato(data) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('BASE_CONTRATOS');
+
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const map = {};
+  headers.forEach((h, i) => map[h] = i + 1);
+
+  // Usa la primera fila vacía real, tomando como referencia la columna A
+  const row = obtenerPrimeraFilaVacia(sheet, 1);
+
+  if (map.ID) {
+    sheet.getRange(row, map.ID).setValue(
+      'CT-' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyyMMdd-HHmmss')
+    );
+  }
+
+  if (map.DOCENTE_NOMBRE) sheet.getRange(row, map.DOCENTE_NOMBRE).setValue(data.DOCENTE_NOMBRE);
+  if (map.DOCUMENTO_DE_IDENTIDAD) sheet.getRange(row, map.DOCUMENTO_DE_IDENTIDAD).setValue(data.DOCUMENTO_DE_IDENTIDAD);
+  if (map.DOCENTE_NUMERO_DNI) sheet.getRange(row, map.DOCENTE_NUMERO_DNI).setValue(data.DOCENTE_NUMERO_DNI);
+  if (map.DOCENTE_DIRECCION) sheet.getRange(row, map.DOCENTE_DIRECCION).setValue(data.DOCENTE_DIRECCION);
+  if (map.DEPARTAMENTO) sheet.getRange(row, map.DEPARTAMENTO).setValue(data.DEPARTAMENTO);
+  if (map.PAIS) sheet.getRange(row, map.PAIS).setValue(data.PAIS);
+
+  if (map.NOMBRE_DEL_PROGRAMA) sheet.getRange(row, map.NOMBRE_DEL_PROGRAMA).setValue(data.NOMBRE_DEL_PROGRAMA);
+  if (map.CENTRO_DE_COSTO) sheet.getRange(row, map.CENTRO_DE_COSTO).setValue(data.CENTRO_DE_COSTO);
+
+  if (map.FECHA_DE_INICIO) sheet.getRange(row, map.FECHA_DE_INICIO).setValue(data.FECHA_DE_INICIO);
+  if (map.FECHA_DE_FIN) sheet.getRange(row, map.FECHA_DE_FIN).setValue(data.FECHA_DE_FIN);
+
+  if (map.TIPO_DE_MONEDA) sheet.getRange(row, map.TIPO_DE_MONEDA).setValue(data.TIPO_DE_MONEDA);
+  if (map.N_WEBINARS) sheet.getRange(row, map.N_WEBINARS).setValue(data.N_WEBINARS);
+
+  if (map.TEMA_WEBINAR_1) sheet.getRange(row, map.TEMA_WEBINAR_1).setValue(data.TEMA_WEBINAR_1);
+  if (map.FECHA_WEBINAR_1) sheet.getRange(row, map.FECHA_WEBINAR_1).setValue(data.FECHA_WEBINAR_1);
+  if (map.HORA_INICIO_WEBINAR_1) sheet.getRange(row, map.HORA_INICIO_WEBINAR_1).setValue(data.HORA_INICIO_WEBINAR_1);
+  if (map.HORA_FIN_WEBINAR_1) sheet.getRange(row, map.HORA_FIN_WEBINAR_1).setValue(data.HORA_FIN_WEBINAR_1);
+
+  if (map.TEMA_WEBINAR_2) sheet.getRange(row, map.TEMA_WEBINAR_2).setValue(data.TEMA_WEBINAR_2);
+  if (map.FECHA_WEBINAR_2) sheet.getRange(row, map.FECHA_WEBINAR_2).setValue(data.FECHA_WEBINAR_2);
+  if (map.HORA_INICIO_WEBINAR_2) sheet.getRange(row, map.HORA_INICIO_WEBINAR_2).setValue(data.HORA_INICIO_WEBINAR_2);
+  if (map.HORA_FIN_WEBINAR_2) sheet.getRange(row, map.HORA_FIN_WEBINAR_2).setValue(data.HORA_FIN_WEBINAR_2);
+
+  if (map.TEMA_WEBINAR_3) sheet.getRange(row, map.TEMA_WEBINAR_3).setValue(data.TEMA_WEBINAR_3);
+  if (map.FECHA_WEBINAR_3) sheet.getRange(row, map.FECHA_WEBINAR_3).setValue(data.FECHA_WEBINAR_3);
+  if (map.HORA_INICIO_WEBINAR_3) sheet.getRange(row, map.HORA_INICIO_WEBINAR_3).setValue(data.HORA_INICIO_WEBINAR_3);
+  if (map.HORA_FIN_WEBINAR_3) sheet.getRange(row, map.HORA_FIN_WEBINAR_3).setValue(data.HORA_FIN_WEBINAR_3);
+
+  if (map.BLOQUE_1) sheet.getRange(row, map.BLOQUE_1).setValue(data.BLOQUE_1);
+  if (map.BLOQUE_2) sheet.getRange(row, map.BLOQUE_2).setValue(data.BLOQUE_2);
+  if (map.BLOQUE_3) sheet.getRange(row, map.BLOQUE_3).setValue(data.BLOQUE_3);
+  if (map.BLOQUE_4) sheet.getRange(row, map.BLOQUE_4).setValue(data.BLOQUE_4);
+  if (map.BLOQUE_5) sheet.getRange(row, map.BLOQUE_5).setValue(data.BLOQUE_5);
+
+  if (map.DIAS_DE_PAGO) sheet.getRange(row, map.DIAS_DE_PAGO).setValue(data.DIAS_DE_PAGO);
+  if (map.MODULOS) sheet.getRange(row, map.MODULOS).setValue(data.MODULOS);
+
+  if (map.DIA_1) sheet.getRange(row, map.DIA_1).setValue(data.DIA_1);
+  if (map.HORA_INICIO_1) sheet.getRange(row, map.HORA_INICIO_1).setValue(data.HORA_INICIO_1);
+  if (map.HORA_FIN_1) sheet.getRange(row, map.HORA_FIN_1).setValue(data.HORA_FIN_1);
+
+  if (map.DIA_2) sheet.getRange(row, map.DIA_2).setValue(data.DIA_2);
+  if (map.HORA_INICIO_2) sheet.getRange(row, map.HORA_INICIO_2).setValue(data.HORA_INICIO_2);
+  if (map.HORA_FIN_2) sheet.getRange(row, map.HORA_FIN_2).setValue(data.HORA_FIN_2);
+
+  if (map.TARIFA_WEBINAR) sheet.getRange(row, map.TARIFA_WEBINAR).setValue(data.TARIFA_WEBINAR);
+  if (map.TARIFA_DOCENTE) sheet.getRange(row, map.TARIFA_DOCENTE).setValue(data.TARIFA_DOCENTE);
+
+  if (map.NOTAS) sheet.getRange(row, map.NOTAS).setValue(data.NOTAS);
+  if (map.ESTADO) sheet.getRange(row, map.ESTADO).setValue('Pendiente');
+
+  // Copia fórmulas a la fila nueva
+  aplicarFormulasEnFila(sheet, row);
+
+  // Fuerza cálculo
+  SpreadsheetApp.flush();
+
+  return {
+    ok: true,
+    row: row,
+    message: 'Registro guardado en la fila ' + row + '.'
+  };
+}
+
+function generarContratoDocxPorFila(row) {
+  return generarContratoExportableFila(row, 'docx');
+}
+
+function generarContratoPdfPorFila(row) {
+  return generarContratoExportableFila(row, 'pdf');
+}
+
+function generarContratoExportableFila(row, formato) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('BASE_CONTRATOS');
+
+  SpreadsheetApp.flush();
+
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const data = sheet.getRange(row, 1, 1, sheet.getLastColumn()).getValues()[0];
+
+  const obj = {};
+  headers.forEach((h, i) => obj[h] = data[i]);
+
+  const templateId = '1fQXvxGcCB4BonwEyGIZX2t927qi-_MFjXbaAew0tsxs';
+  const folderId = '17nb5yP9BJZ8IBMJpUPgHe984IAo4SLB3';
+
+  const folder = DriveApp.getFolderById(folderId);
+
+  const nombreBase = `${limpiarNombreArchivo(valorSeguro(obj.DOCENTE_NOMBRE))} - CONTRATO - ${limpiarNombreArchivo(valorSeguro(obj.CENTRO_DE_COSTO))}`;
+
+  const copia = DriveApp.getFileById(templateId).makeCopy(nombreBase, folder);
+  const doc = DocumentApp.openById(copia.getId());
+  const body = doc.getBody();
+
+  const reemplazos = {
+    '{{DOCENTE_NOMBRE}}': valorSeguro(obj.DOCENTE_NOMBRE),
+    '{{DOCUMENTO_DE_INDENTIDAD}}': valorSeguro(obj.DOCUMENTO_DE_IDENTIDAD),
+    '{{DOCENTE_NUMERO_DNI}}': valorSeguro(obj.DOCENTE_NUMERO_DNI),
+    '{{DOCENTE_DIRECCION}}': valorSeguro(obj.DOCENTE_DIRECCION),
+    '{{DEPARTAMENTO}}': valorSeguro(obj.DEPARTAMENTO),
+    '{{PAIS}}': valorSeguro(obj.PAIS),
+
+    '{{NOMBRE_DEL_PROGRAMA}}': valorSeguro(obj.NOMBRE_DEL_PROGRAMA),
+    '{{CENTRO_DE_COSTO}}': valorSeguro(obj.CENTRO_DE_COSTO),
+
+    '{{FECHA_DE_INICIO}}': formatearFechaTexto(obj.FECHA_DE_INICIO),
+    '{{FECHA_DE_FIN}}': formatearFechaTexto(obj.FECHA_DE_FIN),
+    '{{FECHA_DE_ELABORACION}}': formatearFechaTexto(new Date()),
+
+    '{{TIPO_DE_MONEDA}}': valorSeguro(obj.TIPO_DE_MONEDA),
+    '{{MONTO_TOTAL}}': formatearMonto(obj.MONTO_TOTAL),
+    '{{MONTO_TOTAL_LETRAS}}': valorSeguro(obj.MONTO_TOTAL_LETRAS),
+
+    '{{N_CUOTAS}}': valorSeguro(obj.N_CUOTAS),
+    '{{DETALLE_CUOTAS}}': valorSeguro(obj.DETALLE_CUOTAS),
+    '{{DIAS_DE_PAGO}}': valorSeguro(obj.DIAS_DE_PAGO),
+
+    '{{MODULOS}}': valorSeguro(obj.MODULOS),
+    '{{HORARIOS}}': valorSeguro(obj.HORARIOS),
+    '{{HORAS_TOTALES}}': valorSeguro(obj.HORAS_TOTALES),
+
+    '{{TARIFA_WEBINAR}}': formatearMonto(obj.TARIFA_WEBINAR),
+    '{{TARIFA_DOCCENTE}}': formatearMonto(obj.TARIFA_DOCENTE),
+
+    '{{DETALLE_WEBINAR}}': valorSeguro(obj.DETALLE_WEBINAR),
+    '{{NOTA_PAGO}}': valorSeguro(obj.NOTA_PAGO),
+    '{{NOTAS}}': valorSeguro(obj.NOTAS)
+  };
+
+  for (const marcador in reemplazos) {
+    body.replaceText(escaparRegex(marcador), reemplazos[marcador]);
+  }
+
+  doc.saveAndClose();
+
+  const colLinkDoc = headers.indexOf('LINK_DOC') + 1;
+  const colLinkPDF = headers.indexOf('LINK_PDF') + 1;
+  const colEstado = headers.indexOf('ESTADO') + 1;
+
+  if (formato === 'pdf') {
+    const pdfBlob = copia.getBlob().getAs(MimeType.PDF);
+    const pdfFile = folder.createFile(pdfBlob).setName(nombreBase + '.pdf');
+
+    if (colLinkPDF > 0) sheet.getRange(row, colLinkPDF).setValue(pdfFile.getUrl());
+    if (colEstado > 0) sheet.getRange(row, colEstado).setValue('Generado');
+
+    return { url: pdfFile.getUrl(), nombre: pdfFile.getName(), row: row };
+  }
+
+  if (formato === 'docx') {
+    const docxBlob = exportGoogleDocAsDocx_(copia.getId());
+    const docxFile = folder.createFile(docxBlob).setName(nombreBase + '.docx');
+
+    if (colLinkDoc > 0) sheet.getRange(row, colLinkDoc).setValue(docxFile.getUrl());
+    if (colEstado > 0) sheet.getRange(row, colEstado).setValue('Generado');
+
+    return { url: docxFile.getUrl(), nombre: docxFile.getName(), row: row };
+  }
+
+  throw new Error('Formato no soportado.');
+}
+
+function exportGoogleDocAsDocx_(fileId) {
+  const url = 'https://www.googleapis.com/drive/v3/files/' + fileId + '/export?mimeType=application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+
+  const token = ScriptApp.getOAuthToken();
+  const response = UrlFetchApp.fetch(url, {
+    headers: { Authorization: 'Bearer ' + token },
+    muteHttpExceptions: true
+  });
+
+  const code = response.getResponseCode();
+  if (code !== 200) {
+    throw new Error('No se pudo exportar a Word. Código: ' + code + '.');
+  }
+
+  return response.getBlob();
+}
+
+function valorSeguro(valor) {
+  return valor === null || valor === undefined ? '' : String(valor);
+}
+
+function formatearFechaTexto(valor) {
+  if (!(valor instanceof Date)) return valorSeguro(valor);
+
+  const meses = [
+    'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+    'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
+  ];
+
+  const dia = valor.getDate();
+  const mes = meses[valor.getMonth()];
+  const anio = valor.getFullYear();
+
+  return `${dia} de ${mes} de ${anio}`;
+}
+
+function formatearMonto(valor) {
+  if (valor === '' || valor === null || valor === undefined) return '';
+  const numero = Number(valor);
+  if (isNaN(numero)) return String(valor);
+
+  return numero.toLocaleString('es-PE', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+}
+
+function escaparRegex(texto) {
+  return texto.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function limpiarNombreArchivo(texto) {
+  if (!texto) return '';
+  return String(texto).replace(/[\\\/:*?"<>|]/g, '').trim();
+}
+
+function NUMERO_A_LETRAS(valor) {
+  if (valor === null || valor === '' || valor === undefined) return '';
+
+  let numero = Number(valor);
+  if (isNaN(numero)) return '';
+
+  const enteros = Math.floor(numero);
+  const decimales = Math.round((numero - enteros) * 100);
+
+  return convertirNumero(enteros) + ' CON ' + String(decimales).padStart(2, '0') + '/100';
+}
+
+function convertirNumero(numero) {
+  if (numero === 0) return 'CERO';
+  if (numero < 0) return 'MENOS ' + convertirNumero(Math.abs(numero));
+
+  let resultado = '';
+
+  if (Math.floor(numero / 1000000) > 0) {
+    const millones = Math.floor(numero / 1000000);
+    if (millones === 1) {
+      resultado += 'UN MILLÓN ';
+    } else {
+      resultado += convertirNumero(millones) + ' MILLONES ';
+    }
+    numero = numero % 1000000;
+  }
+
+  if (Math.floor(numero / 1000) > 0) {
+    const miles = Math.floor(numero / 1000);
+    if (miles === 1) {
+      resultado += 'MIL ';
+    } else {
+      resultado += convertirCentenas(miles) + ' MIL ';
+    }
+    numero = numero % 1000;
+  }
+
+  if (numero > 0) {
+    resultado += convertirCentenas(numero);
+  }
+
+  return resultado.trim().replace(/\s+/g, ' ');
+}
+
+function convertirCentenas(numero) {
+  const unidades = [
+    '', 'UNO', 'DOS', 'TRES', 'CUATRO', 'CINCO', 'SEIS', 'SIETE', 'OCHO', 'NUEVE',
+    'DIEZ', 'ONCE', 'DOCE', 'TRECE', 'CATORCE', 'QUINCE',
+    'DIECISEIS', 'DIECISIETE', 'DIECIOCHO', 'DIECINUEVE', 'VEINTE'
+  ];
+
+  const decenas = [
+    '', '', 'VEINTE', 'TREINTA', 'CUARENTA', 'CINCUENTA',
+    'SESENTA', 'SETENTA', 'OCHENTA', 'NOVENTA'
+  ];
+
+  const centenas = [
+    '', 'CIENTO', 'DOSCIENTOS', 'TRESCIENTOS', 'CUATROCIENTOS',
+    'QUINIENTOS', 'SEISCIENTOS', 'SETECIENTOS', 'OCHOCIENTOS', 'NOVECIENTOS'
+  ];
+
+  if (numero === 100) return 'CIEN';
+  if (numero <= 20) return unidades[numero];
+  if (numero < 30) return numero === 21 ? 'VEINTIUNO' : 'VEINTI' + unidades[numero - 20];
+
+  if (numero < 100) {
+    const d = Math.floor(numero / 10);
+    const u = numero % 10;
+    return decenas[d] + (u > 0 ? ' Y ' + unidades[u] : '');
+  }
+
+  const c = Math.floor(numero / 100);
+  const resto = numero % 100;
+
+  return centenas[c] + (resto > 0 ? ' ' + convertirCentenas(resto) : '');
+} 
